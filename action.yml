@@ -1,0 +1,39 @@
+name: 'Refresh Environment Variables'
+description: >
+  在 Windows Runner 下调用 refreshenv，将指定的环境变量重新加载并写入 GITHUB_ENV，
+
+inputs:
+  env-names:
+    description: |
+      支持逗号或换行分隔的环境变量名称列表
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Assert Windows runner
+      if: runner.os != 'Windows'
+      shell: pwsh
+      run: |
+        echo "This action only supports Windows runners."
+        exit 1
+
+    - name: "Export to GITHUB_ENV"
+      shell: pwsh
+      run: |
+        Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+        refreshenv
+        $rawNames = '${{ inputs.env-names }}'
+        $names = $rawNames -split '[,\r\n]+' `
+          | ForEach-Object { $_.Trim() } `
+          | Where-Object { $_ }
+        foreach ($n in $names) {
+          $v = (Get-Item env:$n -ErrorAction SilentlyContinue).Value
+          if (-not $v) {
+            Write-Error "Env var '$n' is empty or not defined."
+          }
+          else {
+            Add-Content -Path $Env:GITHUB_ENV -Value "$n=$v"
+          }
+        }
+

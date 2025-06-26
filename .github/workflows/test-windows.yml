@@ -1,0 +1,58 @@
+name: Test RefreshEnv Action
+
+on:
+  push: {}
+  pull_request: {}
+
+jobs:
+  refreshenv-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set multiple vars via setx
+        shell: pwsh
+        run: |
+          setx TEST_VAR    "HelloFromSetx"
+          setx SECOND_VAR  "SecondValue"
+          setx NUM_VAR     "12345"
+          setx PATH_VAR    "C:\Temp"
+
+      - name: Install Gnuplot via Chocolatey
+        shell: pwsh
+        run: |
+          choco install gnuplot -y
+
+      - name: Print vars before refresh
+        shell: pwsh
+        run: |
+          Write-Host "TEST_VAR before refresh:    $Env:TEST_VAR"
+          Write-Host "SECOND_VAR before refresh:  $Env:SECOND_VAR"
+          Write-Host "NUM_VAR before refresh:     $Env:NUM_VAR"
+          Write-Host "PATH_VAR before refresh:    $Env:PATH_VAR"
+          Write-Host "GNUPLOT_LIB before refresh: $Env:GNUPLOT_LIB"
+
+      - name: RefreshEnv Action for all vars
+        uses: ./
+        with:
+          env-names: |
+            TEST_VAR
+            SECOND_VAR
+            NUM_VAR
+            PATH_VAR
+            GNUPLOT_LIB
+
+      - name: Validate all vars
+        shell: pwsh
+        run: |
+          foreach ($n in @('TEST_VAR','SECOND_VAR','NUM_VAR','PATH_VAR','GNUPLOT_LIB')) {
+            $v = (Get-Item env:$n -ErrorAction SilentlyContinue).Value
+            Write-Host "$n environment variable: $v"
+            if (-not $v) {
+              Write-Error "❌ $n 未设置！"
+            } else {
+              Write-Host "✅ $n 已成功设置：$v"
+            }
+          }
